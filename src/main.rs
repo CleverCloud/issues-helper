@@ -34,17 +34,18 @@ fn read_key() -> Result<String, Box<Error>> {
 
 fn extract_project() -> Result<String, Box<Error>> {
     let repo = git2::Repository::open(".")?;
-    let origin = repo.find_remote("origin")?;
+    let remote = repo.find_remote("origin")?;
+    let origin = remote.url().ok_or("origin is not valid UTF8")?;
 
-    named!(address, do_parse!(
-        tag!("git@CHANGME:") >>
-        a: take_until!(".git") >>
+    named!(address<String>, do_parse!(
+        tag!("git@CHANGEME:") >>
+        a: map!(map_res!(take_until!(".git"), std::str::from_utf8), ToString::to_string) >>
         (a)
     ));
 
-    match address(origin.url_bytes()) {
-        Done(_, a) => Ok(String::from_utf8(a[..].to_vec()).unwrap()),
-        _ => Err("Couldn't parse 'orgin' remote".into())
+    match address(origin.as_bytes()) {
+        Done(_, s) => Ok(s),
+        e => Err(format!("Couldn't parse 'orgin' remote: {:?}", e).into())
     }
 }
 
