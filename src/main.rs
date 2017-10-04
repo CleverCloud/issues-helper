@@ -2,6 +2,7 @@
 extern crate nom;
 extern crate url;
 extern crate futures;
+extern crate git2;
 extern crate hyper;
 extern crate hyper_tls;
 extern crate tokio_core;
@@ -9,10 +10,9 @@ extern crate serde_json;
 extern crate xdg;
 
 use std::error::Error;
-use std::process::Command;
 use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET, QUERY_ENCODE_SET};
 use nom::IResult::Done;
-use std::io::{self, Write};
+use std::io;
 use futures::{Future, Stream};
 use hyper::{Client,Request,Post,Chunk};
 use hyper_tls::HttpsConnector;
@@ -33,20 +33,16 @@ fn read_key() -> Result<String, Box<Error>> {
 }
 
 fn extract_project() -> Result<String, Box<Error>> {
+    let repo = git2::Repository::open(".")?;
+    let origin = repo.find_remote("origin")?;
+
     named!(address, do_parse!(
         tag!("git@CHANGME:") >>
         a: take_until!(".git") >>
         (a)
     ));
 
-    let command = Command::new("git")
-        .arg("remote")
-        .arg("get-url")
-        .arg("origin")
-        .output()
-        .expect("failed to execute process");
-    
-    match address(&command.stdout[..]) {
+    match address(origin.url_bytes()) {
         Done(_, a) => Ok(String::from_utf8(a[..].to_vec()).unwrap()),
         _ => Err("Couldn't parse 'orgin' remote".into())
     }
