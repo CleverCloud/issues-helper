@@ -4,7 +4,7 @@ This is little executable designed to make opening issues easier: type `gli "my 
 
 ## Install
 
-Clone this repo, run `cargo build --release` and copy `target/release/open-issue` somewhere in `$PATH` (and rename it to a short name like `gli` so it's easy to type).
+Clone this repo, run `cargo install`. You'll have `gli` in your path.
 
 ## Requirements
 

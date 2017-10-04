@@ -1,5 +1,5 @@
 [package]
-name = "open-issue"
+name = "gli"
 version = "0.1.0"
 authors = ["Clement Delafargue <clement@delafargue.name>"]
 
