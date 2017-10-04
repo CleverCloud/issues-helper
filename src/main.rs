@@ -12,6 +12,7 @@ extern crate xdg;
 use std::error::Error;
 use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET, QUERY_ENCODE_SET};
 use nom::IResult::Done;
+use nom::be_u8;
 use std::io;
 use futures::{Future, Stream};
 use hyper::{Client,Request,Post,Chunk};
@@ -38,8 +39,8 @@ fn extract_project() -> Result<String, Box<Error>> {
     let origin = remote.url().ok_or("origin is not valid UTF8")?;
 
     named!(address<String>, do_parse!(
-        tag!("git@CHANGEME:") >>
-        a: map!(map_res!(take_until!(".git"), std::str::from_utf8), ToString::to_string) >>
+        alt_complete!(tag!("git@CHANGEME:") | tag!("git+ssh://git@CHANGEME/")) >>
+        a: map_res!(many_till!(call!(be_u8), alt_complete!(tag!(".git") | eof!())), |(bytes, _)| String::from_utf8(bytes)) >>
         (a)
     ));
 
@@ -54,8 +55,9 @@ fn create_issue(api_token: &str, project: &str, title: &str) -> Result<u32, Box<
     let encoded_title = utf8_percent_encode(title, QUERY_ENCODE_SET);
     let url = format!("https://CHANGEME/api/v4/projects/{}/issues?title={}", encoded_project, encoded_title);
     let mut core = Core::new()?;
+    let connector = HttpsConnector::new(4, &core.handle())?;
     let client = Client::configure()
-        .connector(HttpsConnector::new(4, &core.handle()).unwrap())
+        .connector(connector)
         .build(&core.handle());
 
 
