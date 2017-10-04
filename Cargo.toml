@@ -1,0 +1,14 @@
+[package]
+name = "open-issue"
+version = "0.1.0"
+authors = ["Clement Delafargue <clement@delafargue.name>"]
+
+[dependencies]
+nom = "^3.2"
+url = "1.5.1"
+futures = "0.1"
+hyper = "0.11"
+hyper-tls = "0.1.2"
+tokio-core = "0.1"
+serde_json = "*"
+xdg = "^2.1"
