@@ -9,7 +9,7 @@ extern crate serde_json;
 extern crate xdg;
 
 use std::process::Command;
-use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET};
+use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET, QUERY_ENCODE_SET};
 use nom::IResult::Done;
 use std::io::{self, Write};
 use futures::{Future, Stream};
@@ -53,7 +53,7 @@ fn extract_project() -> Result<String,()> {
 
 fn create_issue(api_token: &str, project: &str, title: &str) -> Result<u32,()> {
     let encoded_project = utf8_percent_encode(project, PATH_SEGMENT_ENCODE_SET);
-    let encoded_title = utf8_percent_encode(title, PATH_SEGMENT_ENCODE_SET);
+    let encoded_title = utf8_percent_encode(title, QUERY_ENCODE_SET);
     let url = format!("https://CHANGEME/api/v4/projects/{}/issues?title={}", encoded_project, encoded_title);
     let mut core = try!(Core::new().map_err(|_| ()));
     let client = Client::configure()
