@@ -2,6 +2,16 @@
 
 This is little executable designed to make opening issues easier: type `gli "my shiny issue"` in a git repo, and it will automatically open an issue in the corresponding gitlab repo.
 
+## Use
+
+### Open an issue
+
+    gli "my shiny issue"
+
+### Open the project page in your browser
+
+    gli
+
 ## Install
 
 Clone this repo, run `cargo install`. You'll have `gli` in your path.
@@ -19,5 +29,4 @@ For this to work, the project's `origin` remote must look like `git@CHANGEME:<na
 
 ## ToDo
 
-- Proper installation.
-- Proper errors and refactoring. Seriously, the code is a mess.
+- Quick open of issue page / prs page
