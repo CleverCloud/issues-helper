@@ -8,6 +8,7 @@ extern crate hyper_tls;
 extern crate tokio_core;
 extern crate serde_json;
 extern crate xdg;
+extern crate open;
 
 use std::error::Error;
 use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET, QUERY_ENCODE_SET};
@@ -84,17 +85,28 @@ fn create_issue(api_token: &str, project: &str, title: &str) -> Result<u32, Box<
     Ok(core.run(work)?)
 }
 
-fn do_work() -> Result<u32, Box<Error>> {
+fn do_work() -> Result<String, Box<Error>> {
     let key = read_key()?;
     let project = extract_project()?;
-    let title = env::args().nth(1).ok_or("Argument required: issue title")?;
-    let res = create_issue(&key, &project, &title)?;
-    Ok(res)
+    let title = env::args().nth(1);
+
+    if let Some(t) = title {
+        let res = create_issue(&key, &project, &t)?;
+        Ok(format!("Created issue #{}", res))
+    } else {
+        let _ = open_gitlab(&project);
+        Ok(format!("Opening {}", &project))
+    }
+}
+
+fn open_gitlab(p: &str) -> Result<(), Box<Error>> {
+    let _ = open::that(format!("https://gitlab.clever-cloud.com/{}", p))?;
+    Ok(())
 }
 
 fn main() {
     match do_work() {
-        Ok(id) => println!("Created issue #{}", id),
+        Ok(str) => println!("{}", str),
         Err(e) => println!("Something happened: {}", e)
     }
 }
