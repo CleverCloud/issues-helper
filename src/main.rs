@@ -16,10 +16,10 @@ use nom::IResult::Done;
 use nom::be_u8;
 use std::io;
 use futures::{Future, Stream};
-use hyper::{Client,Request,Post,Chunk};
+use hyper::{Client, Request, Post, Chunk};
 use hyper_tls::HttpsConnector;
 use tokio_core::reactor::Core;
-use serde_json::{Value};
+use serde_json::Value;
 use std::fs::File;
 use std::io::prelude::*;
 use xdg::BaseDirectories;
@@ -47,7 +47,7 @@ fn extract_project() -> Result<String, Box<Error>> {
 
     match address(origin.as_bytes()) {
         Done(_, s) => Ok(s),
-        e => Err(format!("Couldn't parse 'orgin' remote: {:?}", e).into())
+        e => Err(format!("Couldn't parse 'orgin' remote: {:?}", e).into()),
     }
 }
 
@@ -57,27 +57,22 @@ fn create_issue(api_token: &str, project: &str, title: &str) -> Result<u32, Box<
     let url = format!("https://CHANGEME/api/v4/projects/{}/issues?title={}", encoded_project, encoded_title);
     let mut core = Core::new()?;
     let connector = HttpsConnector::new(4, &core.handle())?;
-    let client = Client::configure()
-        .connector(connector)
-        .build(&core.handle());
+    let client = Client::configure().connector(connector).build(
+        &core.handle(),
+    );
 
 
     let uri = url.parse()?;
     let mut request = Request::new(Post, uri);
     request.headers_mut().set_raw("PRIVATE-TOKEN", api_token);
 
-    let work = client.request(request)
-      .and_then(|res| {
+    let work = client.request(request).and_then(|res| {
         res.body().concat2().and_then(move |body: Chunk| {
             let v: Value = serde_json::from_slice(&body).map_err(|e| {
-                io::Error::new(
-                io::ErrorKind::Other,
-                e)
+                io::Error::new(io::ErrorKind::Other, e)
             })?;
             let id: u32 = serde_json::from_value(v["iid"].clone()).map_err(|e| {
-                io::Error::new(
-                io::ErrorKind::Other,
-                e)
+                io::Error::new(io::ErrorKind::Other, e)
             })?;
             Ok(id)
         })
@@ -107,6 +102,6 @@ fn open_gitlab(p: &str) -> Result<(), Box<Error>> {
 fn main() {
     match do_work() {
         Ok(str) => println!("{}", str),
-        Err(e) => println!("Something happened: {}", e)
+        Err(e) => println!("Something happened: {}", e),
     }
 }
