@@ -9,7 +9,13 @@ extern crate tokio_core;
 extern crate serde_json;
 extern crate xdg;
 extern crate open;
+extern crate structopt;
+#[macro_use]
+extern crate structopt_derive;
+#[macro_use]
+extern crate itertools;
 
+use itertools::Itertools;
 use std::error::Error;
 use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET, QUERY_ENCODE_SET};
 use nom::IResult::Done;
@@ -23,7 +29,7 @@ use serde_json::Value;
 use std::fs::File;
 use std::io::prelude::*;
 use xdg::BaseDirectories;
-use std::env;
+use structopt::StructOpt;
 
 fn read_key() -> Result<String, Box<Error>> {
     let path = BaseDirectories::new()?.place_config_file("gitlab-clever")?;
@@ -51,10 +57,31 @@ fn extract_project() -> Result<String, Box<Error>> {
     }
 }
 
-fn create_issue(api_token: &str, project: &str, title: &str) -> Result<u32, Box<Error>> {
+fn create_issue(
+    api_token: &str,
+    project: &str,
+    title: &str,
+    text: &Option<String>,
+    labels: &Vec<String>,
+) -> Result<u32, Box<Error>> {
     let encoded_project = utf8_percent_encode(project, PATH_SEGMENT_ENCODE_SET);
     let encoded_title = utf8_percent_encode(title, QUERY_ENCODE_SET);
-    let url = format!("https://CHANGEME/api/v4/projects/{}/issues?title={}", encoded_project, encoded_title);
+    let desc = &text.clone().unwrap_or(String::new());
+    let encoded_desc = utf8_percent_encode(desc, QUERY_ENCODE_SET);
+    let concat = labels.join(",");
+    let encoded_labels = utf8_percent_encode(&concat, QUERY_ENCODE_SET);
+    let labels_param = if labels.len() > 0 {
+        format!("&labels={}", encoded_labels)
+    } else {
+        "".to_owned()
+    };
+
+    let url = format!(
+        "https://CHANGEME/api/v4/projects/{}/issues?title={}&description={}{}",
+        encoded_project,
+        encoded_title,
+        encoded_desc,
+        &labels_param);
     let mut core = Core::new()?;
     let connector = HttpsConnector::new(4, &core.handle())?;
     let client = Client::configure().connector(connector).build(
@@ -80,27 +107,62 @@ fn create_issue(api_token: &str, project: &str, title: &str) -> Result<u32, Box<
     Ok(core.run(work)?)
 }
 
-fn do_work() -> Result<String, Box<Error>> {
+fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
     let key = read_key()?;
     let project = extract_project()?;
-    let title = env::args().nth(1);
 
-    if let Some(t) = title {
-        let res = create_issue(&key, &project, &t)?;
-        Ok(format!("Created issue #{}", res))
-    } else {
-        let _ = open_gitlab(&project);
-        Ok(format!("Opening {}", &project))
+    match cmd {
+        &Cmd::OpenIssue {
+            open_browser,
+            ref labels,
+            ref title,
+            ref text,
+        } => {
+            let res = create_issue(&key, &project, title, text, labels)?;
+            let url = format!("https://gitlab.clever-cloud.com/{}/issues/{}", &project, &res);
+            if open_browser {
+                open_gitlab(&project, Some(res))?
+            }
+            Ok(format!("Created issue #{} {}", res, url))
+        }
+        &Cmd::Browse {} => {
+            let _ = open_gitlab(&project, None);
+            Ok(format!("Opening {}", &project))
+        }
     }
 }
 
-fn open_gitlab(p: &str) -> Result<(), Box<Error>> {
-    let _ = open::that(format!("https://gitlab.clever-cloud.com/{}", p))?;
+fn open_gitlab(p: &str, issue: Option<u32>) -> Result<(), Box<Error>> {
+    if let Some(i) = issue {
+        open::that(
+            format!("https://gitlab.clever-cloud.com/{}/issues/{}", p, i),
+        )?;
+    } else {
+        open::that(format!("https://gitlab.clever-cloud.com/{}", p))?;
+    }
     Ok(())
 }
 
+#[derive(StructOpt, Debug)]
+#[structopt(name = "gl-helper", about = "Gitlab helper.")]
+enum Cmd {
+    #[structopt(name = "b", about = "Open gitlab page in the browser")]
+    Browse {},
+    #[structopt(name = "o", about = "Open issue")]
+    OpenIssue {
+        #[structopt(name = "open", short = "o", long = "open",
+                    help = "Open browser after having created the issue")]
+        open_browser: bool,
+        #[structopt(name = "label", short = "l", long = "label", help = "Add labels to the issue")]
+        labels: Vec<String>,
+        title: String,
+        text: Option<String>,
+    },
+}
+
 fn main() {
-    match do_work() {
+    let cmd = Cmd::from_args();
+    match do_work(&cmd) {
         Ok(str) => println!("{}", str),
         Err(e) => println!("Something happened: {}", e),
     }
