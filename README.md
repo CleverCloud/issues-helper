@@ -6,11 +6,14 @@ This is little executable designed to make opening issues easier: type `gli "my 
 
 ### Open an issue
 
-    gli "my shiny issue"
+    gli o "my shiny issue" ["my issue text"] [--open] [--label suggestion]*
+
+`--open` will automatically open the issue page in the browser for further edition.
+`--label` allows you to specify a label when creating an issue. It's a multiple option, so either put it at the end of the command or put `--` before the issue title.
 
 ### Open the project page in your browser
 
-    gli
+    gli b
 
 ## Install
 
@@ -26,7 +29,3 @@ You can create access tokens on gitlab: <https://gitlab.clever-cloud.com/profile
 ### `origin` remote
 
 For this to work, the project's `origin` remote must look like `git@CHANGEME:<namespace>/<project>.git`, else it wont work.
-
-## ToDo
-
-- Quick open of issue page / prs page
