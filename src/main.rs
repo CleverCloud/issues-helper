@@ -12,13 +12,11 @@ extern crate open;
 extern crate structopt;
 #[macro_use]
 extern crate structopt_derive;
-#[macro_use]
 extern crate itertools;
 extern crate gitlab;
 
 use gitlab::Gitlab;
 use gitlab::types::*;
-use itertools::Itertools;
 use std::error::Error;
 use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET, QUERY_ENCODE_SET};
 use nom::IResult::Done;
