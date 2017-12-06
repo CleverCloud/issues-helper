@@ -90,7 +90,18 @@ fn extract_project(config: &Config) -> Result<String, Box<Error>> {
     ));
 
     match address(origin.as_bytes()) {
-        Done(_, (domain, project)) => Ok(project),
+        Done(_, (domain, project)) => {
+            if domain == config.gitlab_domain {
+                Ok(project)
+            } else {
+                Err(
+                    format!(
+                    "Couldn't find credentials for {}, only {} is supported",
+                    domain,
+                    config.gitlab_domain).into(),
+                )
+            }
+        }
         e => Err(format!("Couldn't parse 'orgin' remote: {:?}", e).into()),
     }
 }
