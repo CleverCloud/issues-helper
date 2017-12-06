@@ -90,7 +90,8 @@ fn extract_project(config: &Config) -> Result<String, Box<Error>> {
         domain: map_res!(
             alt_complete!(
                 raw_ssh |
-                ssh_url
+                ssh_url |
+                https_url
             ),
             |bytes| std::str::from_utf8(bytes).map(|s| s.to_owned())
         ) >>
