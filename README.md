@@ -26,5 +26,7 @@ You need [cargo](http://doc.crates.io/) to install *issues-helper*.
 
 ### `origin` remote
 
-For this to work, the project's `origin` remote must look like `git@<domain-name>:<namespace>/<project>.git` or `git+ssh://<domain-name>/<namespace>/<project>.git`
+For this to work, the project's `origin` remote must look like `git@<domain-name>:<namespace>/<project>.git`,
+`git+ssh://<domain-name>/<namespace>/<project>.git` or
+`https://<domain-name>/<namespace>/<project>.git`
 else it wont work.

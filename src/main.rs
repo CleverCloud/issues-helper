@@ -67,6 +67,15 @@ fn extract_project(config: &Config) -> Result<String, Box<Error>> {
     );
 
     named!(
+        https_url,
+        do_parse!(
+            tag!("https://") >>
+            domain: take_while!(|c: u8| c as char != '/') >>
+            tag!("/") >> (domain)
+        )
+    );
+
+    named!(
         repo_name<String>,
         map_res!(
             many_till!(call!(be_u8), alt_complete!(tag!(".git") | eof!())),
