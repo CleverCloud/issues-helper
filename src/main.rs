@@ -1,3 +1,4 @@
+extern crate dialoguer;
 extern crate futures;
 extern crate git2;
 extern crate gitlab;
@@ -19,6 +20,7 @@ extern crate toml;
 extern crate url;
 extern crate xdg;
 
+use dialoguer::Editor;
 use futures::{Future, Stream};
 use gitlab::Gitlab;
 use gitlab::types::*;
@@ -116,6 +118,17 @@ fn extract_project(config: &Config) -> Result<String, Box<Error>> {
     }
 }
 
+fn create_issue_visual(
+    config: &Config,
+    project: &str,
+    title: &str,
+    labels: &Vec<String>,
+    assignee: &Option<String>,
+) -> Result<u32, Box<Error>> {
+    let desc = Editor::new().edit("Issue body").unwrap();
+    create_issue(config, project, title, &desc, labels, assignee)
+}
+
 fn create_issue(
     config: &Config,
     project: &str,
@@ -193,6 +206,26 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
             let config = read_config()?;
             let project = extract_project(&config)?;
             let res = create_issue(&config, &project, title, text, labels, assignee)?;
+            let url = format!(
+                "https://{}/{}/issues/{}",
+                &config.gitlab_domain,
+                &project,
+                &res
+            );
+            if open_browser {
+                open_gitlab(&config.gitlab_domain, &project, Some(res))?
+            }
+            Ok(format!("Created issue #{} {}", res, url))
+        }
+        &Cmd::OpenIssueVisual {
+            open_browser,
+            ref labels,
+            ref assignee,
+            ref title,
+        } => {
+            let config = read_config()?;
+            let project = extract_project(&config)?;
+            let res = create_issue_visual(&config, &project, title, labels, assignee)?;
             let url = format!(
                 "https://{}/{}/issues/{}",
                 &config.gitlab_domain,
@@ -285,6 +318,13 @@ enum Cmd {
         #[structopt(name = "assignee", short = "a", long = "assignee", help = "Assigne the issue to a user")] assignee: Option<String>,
         title: String,
         text: Option<String>,
+    },
+    #[structopt(name = "v", about = "Open issue in $EDITOR")]
+    OpenIssueVisual {
+        #[structopt(name = "open", short = "o", long = "open", help = "Open browser after having created the issue")] open_browser: bool,
+        #[structopt(name = "label", short = "l", long = "label", help = "Add labels to the issue")] labels: Vec<String>,
+        #[structopt(name = "assignee", short = "a", long = "assignee", help = "Assigne the issue to a user")] assignee: Option<String>,
+        title: String,
     },
     #[structopt(name = "init", about = "Generate configuration")] Init {},
 }
