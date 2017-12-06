@@ -6,7 +6,7 @@ This is little executable designed to make opening issues easier: type `gli "my 
 
 You need [cargo](http://doc.crates.io/) to install *issues-helper*.
 
-    cargo install issues-helper # will install an executable called `gli`
+    cargo install gli # will install an executable called `gli`
     gli init # inital configuration (gitlab domain, personal access token)
 
 ## Use
