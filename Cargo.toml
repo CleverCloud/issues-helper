@@ -2,6 +2,8 @@
 name = "gli"
 version = "0.1.0"
 authors = ["Clement Delafargue <clement@delafargue.name>"]
+description = "Easily open issues from the command line"
+license = "MIT"
 
 [dependencies]
 nom = "^3.2"
