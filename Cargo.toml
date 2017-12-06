@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["Clement Delafargue <clement@delafargue.name>"]
 description = "Easily open issues from the command line"
 license = "MIT"
+repository = "https://github.com/CleverCloud/issues-helper"
+readme = "README.md"
 
 [dependencies]
 nom = "^3.2"
