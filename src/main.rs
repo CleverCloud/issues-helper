@@ -202,8 +202,14 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
         }
         &Cmd::Init {} => {
             init_config()?;
-            // ToDo give an example of how to use the tool
-            Ok(format!("Config generated"))
+            Ok(format!(r#"
+Wonderful! Config has been saved in `$XDG_CONFIG_HOME/issues-helper`.
+By default, `$XDG_CONFIG_HOME` is `~/.config`.
+You can now `cd` to a project directory and type:
+`gli o "My issue"` to easily open issues.
+It will pick up the project from the `origin` git remote.
+Try `gli o --help` to see options.
+Happy hacking :-)"#))
         }
     }
 }
@@ -224,9 +230,10 @@ fn init_config() -> Result<(), Box<Error>> {
 }
 
 fn ask_config() -> Result<Config, Box<Error>> {
-    // ToDo give more indications about how to find the values
+    println!("Hi! First I need to know the domain name of your gitlab instance (eg gitlab.example.org)");
     let gitlab_domain = prompt_reply_stdout("Gitlab domain name: ")?;
-    // maybe automatically open a browser window to generate the access token?
+    println!("Thanks, now I need a personal access token to authenticate calls.");
+    println!("You can generate one here: https://{}/profile/personal_access_tokens", &gitlab_domain);
     let gitlab_token = prompt_reply_stdout("Gitlab personal access token: ")?;
 
     Ok(Config {
@@ -246,7 +253,11 @@ fn save_config(config: &Config) -> Result<(), Box<Error>> {
 
 fn read_config() -> Result<Config, Box<Error>> {
     let path = BaseDirectories::new()?.place_config_file("issues-helper")?;
-    let mut f = File::open(path)?;
+    let missing_config: Box<Error> = format!(
+r#"It looks like you've not configured me yet.
+Please run `gli init` so we can get going!"#).into();
+    let mut f = File::open(path).map_err(|_| missing_config)?;
+
     let mut contents = String::new();
     f.read_to_string(&mut contents)?;
     let config: Config = toml::from_str(&contents)?;
