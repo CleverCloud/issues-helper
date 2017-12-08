@@ -32,10 +32,27 @@ use std::error::Error;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
+use std::str::FromStr;
 use structopt::StructOpt;
 use tokio_core::reactor::Core;
 use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET, QUERY_ENCODE_SET};
 use xdg::BaseDirectories;
+
+#[derive(Debug)]
+struct MyIssueState(IssueState);
+
+impl FromStr for MyIssueState {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_ref() {
+            "open" => Ok(MyIssueState(IssueState::Opened)),
+            "close" => Ok(MyIssueState(IssueState::Closed)),
+            "reopen" => Ok(MyIssueState(IssueState::Reopened)),
+            _ => Err(format!("Unknow state: {}", s)),
+        }
+    }
+}
 
 #[derive(Deserialize, Serialize)]
 struct Config {
@@ -181,6 +198,24 @@ fn get_user_id_by_name(name: &str) -> Result<UserId, Box<Error>> {
     Ok(user.id)
 }
 
+fn list_issues(
+    config: Config,
+    project: &str,
+    filter_state: &MyIssueState,)
+    -> Result<String, Box<Error>> {
+    let gitlab_client = Gitlab::new(config.gitlab_domain, config.gitlab_token)?;
+    let project = gitlab_client.project_by_name(project)?;
+
+    gitlab_client.issues(project.id)
+        .and_then(|issues| {
+            issues.into_iter()
+            .filter(|i| i.state == filter_state.0)
+            .for_each(|i| println!("#{} {:?} {} {}", i.id, i.state, i.title, i.created_at.format("%F %H:%M")));
+            Ok("".to_string())
+        })
+        .map_err(From::from)
+}
+
 fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
     match cmd {
         &Cmd::OpenIssue {
@@ -209,7 +244,14 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
             let project = extract_project(&config)?;
             let _ = open_gitlab(&config.gitlab_domain, &project, None);
             Ok(format!("Opening {}", &project))
-        }
+        },
+        &Cmd::ListIssues {
+            ref filter_state,
+        } => {
+            let config = read_config()?;
+            let project = extract_project(&config)?;
+            list_issues(config, &project, filter_state)
+        },
         &Cmd::Init {} => {
             init_config()?;
             Ok(format!(r#"
@@ -287,6 +329,12 @@ enum Cmd {
         text: Option<String>,
     },
     #[structopt(name = "init", about = "Generate configuration")] Init {},
+    #[structopt(name = "l", about = "List all gitlab issues")]
+    ListIssues {
+        #[structopt(name = "filter", short = "f", long = "filter",
+                    help = "Filter the issues by state. Possible values are: open, close, reopen")]
+        filter_state: MyIssueState,
+    },
 }
 
 fn main() {
