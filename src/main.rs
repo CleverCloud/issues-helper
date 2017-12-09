@@ -315,7 +315,7 @@ enum Cmd {
         title: String,
         text: Option<String>,
     },
-    #[structopt(name = "v", about = "Open issue in $EDITOR")]
+    #[structopt(name = "v", about = "Open issue and edit body in $EDITOR")]
     OpenIssueVisual {
         #[structopt(name = "open", short = "o", long = "open", help = "Open browser after having created the issue")] open_browser: bool,
         #[structopt(name = "label", short = "l", long = "label", help = "Add labels to the issue")] labels: Vec<String>,
