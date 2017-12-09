@@ -11,6 +11,7 @@ extern crate open;
 extern crate rprompt;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
 extern crate serde_json;
 extern crate structopt;
 #[macro_use]
@@ -36,7 +37,7 @@ use std::io;
 use std::io::prelude::*;
 use structopt::StructOpt;
 use tokio_core::reactor::Core;
-use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET, QUERY_ENCODE_SET};
+use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET};
 use xdg::BaseDirectories;
 
 #[derive(Deserialize, Serialize)]
@@ -138,31 +139,19 @@ fn create_issue(
     assignee: &Option<String>,
 ) -> Result<u32, Box<Error>> {
     let encoded_project = utf8_percent_encode(project, PATH_SEGMENT_ENCODE_SET);
-    let encoded_title = utf8_percent_encode(title, QUERY_ENCODE_SET);
     let desc = &text.clone().unwrap_or(String::new());
-    let encoded_desc = utf8_percent_encode(desc, QUERY_ENCODE_SET);
     let concat = labels.join(",");
-    let encoded_labels = utf8_percent_encode(&concat, QUERY_ENCODE_SET);
-    let labels_param = if labels.len() > 0 {
-        format!("&labels={}", encoded_labels)
-    } else {
-        "".to_owned()
-    };
-    let assignee_param = if let &Some(ref a) = assignee {
+    let assignee_id = if let &Some(ref a) = assignee {
         let r = get_user_id_by_name(a)?;
-        format!("&assignee_ids={}", r.value())
+        format!("{}", r.value())
     } else {
         String::new()
     };
 
     let url = format!(
-        "https://{}/api/v4/projects/{}/issues?title={}&description={}{}{}",
+        "https://{}/api/v4/projects/{}/issues",
         &config.gitlab_domain,
-        encoded_project,
-        encoded_title,
-        encoded_desc,
-        &labels_param,
-        &assignee_param
+        encoded_project
     );
     let mut core = Core::new()?;
     let connector = HttpsConnector::new(4, &core.handle())?;
@@ -170,12 +159,19 @@ fn create_issue(
         .connector(connector)
         .build(&core.handle());
 
-
     let uri = url.parse()?;
     let mut request = Request::new(Post, uri);
     request
         .headers_mut()
         .set_raw("PRIVATE-TOKEN", config.gitlab_token.as_str());
+
+    request.set_body(
+        json!({
+            "title": title,
+            "description": desc,
+            "labels": concat,
+            "assignee_ids": assignee_id
+        }).to_string());
 
     let work = client.request(request).and_then(|res| {
         res.body().concat2().and_then(move |body: Chunk| {
