@@ -33,6 +33,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::str::FromStr;
+use std::fmt;
 use structopt::StructOpt;
 use tokio_core::reactor::Core;
 use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET, QUERY_ENCODE_SET};
@@ -48,8 +49,28 @@ impl FromStr for MyIssueState {
         match s.to_lowercase().as_ref() {
             "open" => Ok(MyIssueState(IssueState::Opened)),
             "close" => Ok(MyIssueState(IssueState::Closed)),
-            "reopen" => Ok(MyIssueState(IssueState::Reopened)),
-            _ => Err(format!("Unknow state: {}", s)),
+            "reopened" => Ok(MyIssueState(IssueState::Reopened)),
+            _ => Err(format!("Unknown state: {}", s)),
+        }
+    }
+}
+
+impl From<IssueState> for MyIssueState {
+    fn from(issue: IssueState) -> Self {
+        match issue {
+            IssueState::Opened => MyIssueState(IssueState::Opened),
+            IssueState::Closed => MyIssueState(IssueState::Closed),
+            IssueState::Reopened => MyIssueState(IssueState::Reopened),
+        }
+    }
+}
+
+impl fmt::Display for MyIssueState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.0 {
+            IssueState::Opened => write!(f, "open"),
+            IssueState::Closed => write!(f, "close"),
+            IssueState::Reopened => write!(f, "reopened"),
         }
     }
 }
@@ -210,7 +231,7 @@ fn list_issues(
         .and_then(|issues| {
             issues.into_iter()
             .filter(|i| i.state == filter_state.0)
-            .for_each(|i| println!("#{} {:?} {} {}", i.id, i.state, i.title, i.created_at.format("%F %H:%M")));
+            .for_each(|i| println!("#{} {} {} {}", i.id, MyIssueState::from(i.state), i.title, i.created_at.format("%F %H:%M")));
             Ok("".to_string())
         })
         .map_err(From::from)
@@ -332,7 +353,7 @@ enum Cmd {
     #[structopt(name = "l", about = "List all gitlab issues")]
     ListIssues {
         #[structopt(name = "filter", short = "f", long = "filter",
-                    help = "Filter the issues by state. Possible values are: open, close, reopen")]
+                    help = "Filter the issues by state. Possible values are: open, close, reopened")]
         filter_state: MyIssueState,
     },
 }
