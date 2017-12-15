@@ -353,6 +353,7 @@ enum Cmd {
     #[structopt(name = "l", about = "List all gitlab issues")]
     ListIssues {
         #[structopt(name = "filter", short = "f", long = "filter",
+                    default_value = "open",
                     help = "Filter the issues by state. Possible values are: open, closed, reopened")]
         filter_state: MyIssueState,
     },
