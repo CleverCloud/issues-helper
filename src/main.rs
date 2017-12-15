@@ -161,7 +161,7 @@ fn create_issue(
     text: &Option<String>,
     labels: &Vec<String>,
     assignee: &Option<String>,
-) -> Result<u32, Box<Error>> {
+) -> Result<u64, Box<Error>> {
     let encoded_project = utf8_percent_encode(project, PATH_SEGMENT_ENCODE_SET);
     let encoded_title = utf8_percent_encode(title, QUERY_ENCODE_SET);
     let desc = &text.clone().unwrap_or(String::new());
@@ -205,7 +205,7 @@ fn create_issue(
     let work = client.request(request).and_then(|res| {
         res.body().concat2().and_then(move |body: Chunk| {
             let v: Value = serde_json::from_slice(&body).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-            let id: u32 = serde_json::from_value(v["iid"].clone()).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            let id: u64 = serde_json::from_value(v["iid"].clone()).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
             Ok(id)
         })
     });
@@ -219,25 +219,36 @@ fn get_user_id_by_name(name: &str) -> Result<UserId, Box<Error>> {
     Ok(user.id)
 }
 
-fn list_issues(
-    config: Config,
-    project: &str,
-    filter_state: &MyIssueState,)
-    -> Result<String, Box<Error>> {
-    let gitlab_client = Gitlab::new(config.gitlab_domain, config.gitlab_token)?;
+fn list_issues(config: Config, project: &str, filter_state: &MyIssueState) -> Result<String, Box<Error>> {
+    let gitlab_client = Gitlab::new(&config.gitlab_domain, &config.gitlab_token)?;
     let project = gitlab_client.project_by_name(project)?;
 
-    gitlab_client.issues(project.id)
+    gitlab_client
+        .issues(project.id)
         .and_then(|issues| {
-            issues.into_iter()
-            .filter(|i| i.state == filter_state.0)
-            .for_each(|i| println!("#{} {} {} {}", i.iid, MyIssueState::from(i.state), i.title, i.created_at.format("%F %H:%M")));
+            issues
+                .into_iter()
+                .filter(|i| i.state == filter_state.0)
+                .for_each(|i| {
+                    println!(
+                        "#{} {} {} {} {}",
+                        i.iid,
+                        MyIssueState::from(i.state),
+                        i.title,
+                        i.created_at.format("%F %H:%M"),
+                        get_issue_url(
+                            &config.gitlab_domain,
+                            &project.path_with_namespace,
+                            &i.iid.value()
+                        )
+                    )
+                });
             Ok("".to_string())
         })
         .map_err(From::from)
 }
 
-fn get_issue_url(domain: &str, project: &str, number: &u32) -> String {
+fn get_issue_url(domain: &str, project: &str, number: &u64) -> String {
     format!("https://{}/{}/issues/{}", domain, project, number)
 }
 
@@ -290,7 +301,7 @@ Happy hacking :-)"#))
     }
 }
 
-fn open_gitlab(domain: &str, p: &str, issue: Option<u32>) -> Result<(), Box<Error>> {
+fn open_gitlab(domain: &str, p: &str, issue: Option<u64>) -> Result<(), Box<Error>> {
     if let Some(i) = issue {
         open::that(get_issue_url(domain, p, &i))?;
     } else {
