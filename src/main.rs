@@ -48,7 +48,7 @@ impl FromStr for MyIssueState {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_ref() {
             "open" => Ok(MyIssueState(IssueState::Opened)),
-            "close" => Ok(MyIssueState(IssueState::Closed)),
+            "closed" => Ok(MyIssueState(IssueState::Closed)),
             "reopened" => Ok(MyIssueState(IssueState::Reopened)),
             _ => Err(format!("Unknown state: {}", s)),
         }
@@ -69,7 +69,7 @@ impl fmt::Display for MyIssueState {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0 {
             IssueState::Opened => write!(f, "open"),
-            IssueState::Closed => write!(f, "close"),
+            IssueState::Closed => write!(f, "closed"),
             IssueState::Reopened => write!(f, "reopened"),
         }
     }
@@ -353,7 +353,7 @@ enum Cmd {
     #[structopt(name = "l", about = "List all gitlab issues")]
     ListIssues {
         #[structopt(name = "filter", short = "f", long = "filter",
-                    help = "Filter the issues by state. Possible values are: open, close, reopened")]
+                    help = "Filter the issues by state. Possible values are: open, closed, reopened")]
         filter_state: MyIssueState,
     },
 }
