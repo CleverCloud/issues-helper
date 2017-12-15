@@ -237,6 +237,14 @@ fn list_issues(
         .map_err(From::from)
 }
 
+fn get_issue_url(domain: &str, project: &str, number: &u32) -> String {
+    format!("https://{}/{}/issues/{}", domain, project, number)
+}
+
+fn get_project_url(domain: &str, project: &str) -> String {
+    format!("https://{}/{}", domain, project)
+}
+
 fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
     match cmd {
         &Cmd::OpenIssue {
@@ -249,12 +257,7 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
             let config = read_config()?;
             let project = extract_project(&config)?;
             let res = create_issue(&config, &project, title, text, labels, assignee)?;
-            let url = format!(
-                "https://{}/{}/issues/{}",
-                &config.gitlab_domain,
-                &project,
-                &res
-            );
+            let url = get_issue_url(&config.gitlab_domain, &project, &res);
             if open_browser {
                 open_gitlab(&config.gitlab_domain, &project, Some(res))?
             }
@@ -289,9 +292,9 @@ Happy hacking :-)"#))
 
 fn open_gitlab(domain: &str, p: &str, issue: Option<u32>) -> Result<(), Box<Error>> {
     if let Some(i) = issue {
-        open::that(format!("https://{}/{}/issues/{}", domain, p, i))?;
+        open::that(get_issue_url(domain, p, &i))?;
     } else {
-        open::that(format!("https://{}/{}", domain, p))?;
+        open::that(get_project_url(domain, p))?;
     }
     Ok(())
 }
