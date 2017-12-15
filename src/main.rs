@@ -231,7 +231,7 @@ fn list_issues(
         .and_then(|issues| {
             issues.into_iter()
             .filter(|i| i.state == filter_state.0)
-            .for_each(|i| println!("#{} {} {} {}", i.id, MyIssueState::from(i.state), i.title, i.created_at.format("%F %H:%M")));
+            .for_each(|i| println!("#{} {} {} {}", i.iid, MyIssueState::from(i.state), i.title, i.created_at.format("%F %H:%M")));
             Ok("".to_string())
         })
         .map_err(From::from)
