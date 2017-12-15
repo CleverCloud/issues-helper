@@ -1,3 +1,4 @@
+extern crate dialoguer;
 extern crate futures;
 extern crate git2;
 extern crate gitlab;
@@ -10,6 +11,7 @@ extern crate open;
 extern crate rprompt;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
 extern crate serde_json;
 extern crate structopt;
 #[macro_use]
@@ -19,6 +21,7 @@ extern crate toml;
 extern crate url;
 extern crate xdg;
 
+use dialoguer::Editor;
 use futures::{Future, Stream};
 use gitlab::Gitlab;
 use gitlab::types::*;
@@ -36,7 +39,7 @@ use std::str::FromStr;
 use std::fmt;
 use structopt::StructOpt;
 use tokio_core::reactor::Core;
-use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET, QUERY_ENCODE_SET};
+use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET};
 use xdg::BaseDirectories;
 
 #[derive(Debug)]
@@ -154,6 +157,17 @@ fn extract_project(config: &Config) -> Result<String, Box<Error>> {
     }
 }
 
+fn create_issue_visual(
+    config: &Config,
+    project: &str,
+    title: &str,
+    labels: &Vec<String>,
+    assignee: &Option<String>,
+) -> Result<u32, Box<Error>> {
+    let desc = Editor::new().edit("Issue body").unwrap();
+    create_issue(config, project, title, &desc, labels, assignee)
+}
+
 fn create_issue(
     config: &Config,
     project: &str,
@@ -163,31 +177,19 @@ fn create_issue(
     assignee: &Option<String>,
 ) -> Result<u64, Box<Error>> {
     let encoded_project = utf8_percent_encode(project, PATH_SEGMENT_ENCODE_SET);
-    let encoded_title = utf8_percent_encode(title, QUERY_ENCODE_SET);
     let desc = &text.clone().unwrap_or(String::new());
-    let encoded_desc = utf8_percent_encode(desc, QUERY_ENCODE_SET);
     let concat = labels.join(",");
-    let encoded_labels = utf8_percent_encode(&concat, QUERY_ENCODE_SET);
-    let labels_param = if labels.len() > 0 {
-        format!("&labels={}", encoded_labels)
-    } else {
-        "".to_owned()
-    };
-    let assignee_param = if let &Some(ref a) = assignee {
+    let assignee_id = if let &Some(ref a) = assignee {
         let r = get_user_id_by_name(a)?;
-        format!("&assignee_ids={}", r.value())
+        format!("{}", r.value())
     } else {
         String::new()
     };
 
     let url = format!(
-        "https://{}/api/v4/projects/{}/issues?title={}&description={}{}{}",
+        "https://{}/api/v4/projects/{}/issues",
         &config.gitlab_domain,
-        encoded_project,
-        encoded_title,
-        encoded_desc,
-        &labels_param,
-        &assignee_param
+        encoded_project
     );
     let mut core = Core::new()?;
     let connector = HttpsConnector::new(4, &core.handle())?;
@@ -195,12 +197,19 @@ fn create_issue(
         .connector(connector)
         .build(&core.handle());
 
-
     let uri = url.parse()?;
     let mut request = Request::new(Post, uri);
     request
         .headers_mut()
         .set_raw("PRIVATE-TOKEN", config.gitlab_token.as_str());
+
+    request.set_body(
+        json!({
+            "title": title,
+            "description": desc,
+            "labels": concat,
+            "assignee_ids": assignee_id
+        }).to_string());
 
     let work = client.request(request).and_then(|res| {
         res.body().concat2().and_then(move |body: Chunk| {
@@ -269,6 +278,26 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
             let project = extract_project(&config)?;
             let res = create_issue(&config, &project, title, text, labels, assignee)?;
             let url = get_issue_url(&config.gitlab_domain, &project, &res);
+            if open_browser {
+                open_gitlab(&config.gitlab_domain, &project, Some(res))?
+            }
+            Ok(format!("Created issue #{} {}", res, url))
+        }
+        &Cmd::OpenIssueVisual {
+            open_browser,
+            ref labels,
+            ref assignee,
+            ref title,
+        } => {
+            let config = read_config()?;
+            let project = extract_project(&config)?;
+            let res = create_issue_visual(&config, &project, title, labels, assignee)?;
+            let url = format!(
+                "https://{}/{}/issues/{}",
+                &config.gitlab_domain,
+                &project,
+                &res
+            );
             if open_browser {
                 open_gitlab(&config.gitlab_domain, &project, Some(res))?
             }
@@ -362,6 +391,13 @@ enum Cmd {
         #[structopt(name = "assignee", short = "a", long = "assignee", help = "Assigne the issue to a user")] assignee: Option<String>,
         title: String,
         text: Option<String>,
+    },
+    #[structopt(name = "v", about = "Open issue and edit body in $EDITOR")]
+    OpenIssueVisual {
+        #[structopt(name = "open", short = "o", long = "open", help = "Open browser after having created the issue")] open_browser: bool,
+        #[structopt(name = "label", short = "l", long = "label", help = "Add labels to the issue")] labels: Vec<String>,
+        #[structopt(name = "assignee", short = "a", long = "assignee", help = "Assigne the issue to a user")] assignee: Option<String>,
+        title: String,
     },
     #[structopt(name = "init", about = "Generate configuration")] Init {},
     #[structopt(name = "l", about = "List all gitlab issues")]
