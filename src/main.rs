@@ -1,6 +1,7 @@
 extern crate futures;
 extern crate git2;
 extern crate gitlab;
+extern crate github_rs as gh;
 extern crate hyper;
 extern crate hyper_tls;
 extern crate itertools;
@@ -21,6 +22,7 @@ extern crate xdg;
 
 mod config;
 mod gitlab_api;
+mod github_api;
 
 use config::*;
 use std::error::Error;
@@ -59,7 +61,7 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
                     let _ = gitlab_api::open_gitlab(&config.gitlab_domain, &project, None);
                 }
                 &Place::Github => {
-                    unimplemented!()
+                    let _ = github_api::open_project(&project);
                 }
             }
             Ok(format!("Opening {}", &project.name()))
@@ -71,7 +73,7 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
             let project = extract_project(&config)?;
             match &project.place {
                 &Place::Gitlab(_) => gitlab_api::list_issues(config, &project, filter_state),
-                &Place::Github => unimplemented!()
+                &Place::Github => github_api::list_issues(config, &project, filter_state)
             }
         },
         &Cmd::Init {} => {

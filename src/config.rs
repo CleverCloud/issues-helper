@@ -37,7 +37,7 @@ impl Project {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 pub enum IssueFilter {
     Open,
     Closed,
