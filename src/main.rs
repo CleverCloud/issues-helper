@@ -49,7 +49,11 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
                     Ok(format!("Created issue #{} {}", res, url))
                 }
                 &Place::Github => {
-                    unimplemented!()
+                    let (number, url) = github_api::create_issue(&config, &project, title, text, labels, assignee)?;
+                    if open_browser {
+                        open::that(&url)?;
+                    }
+                    Ok(format!("Created issue #{} {}", number, url))
                 }
             }
         }
