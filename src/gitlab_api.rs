@@ -1,4 +1,5 @@
 use config::*;
+use config::Project;
 use gitlab::*;
 use futures::{Future, Stream};
 use gitlab;
@@ -55,13 +56,14 @@ impl fmt::Display for MyIssueState {
 
 pub fn create_issue(
     config: &Config,
-    project: &str,
+    project: &Project,
     title: &str,
     text: &Option<String>,
     labels: &Vec<String>,
     assignee: &Option<String>,
 ) -> Result<u64, Box<Error>> {
-    let encoded_project = utf8_percent_encode(project, PATH_SEGMENT_ENCODE_SET);
+    let project_name = project.name();
+    let encoded_project = utf8_percent_encode(&project_name, PATH_SEGMENT_ENCODE_SET);
     let encoded_title = utf8_percent_encode(title, QUERY_ENCODE_SET);
     let desc = &text.clone().unwrap_or(String::new());
     let encoded_desc = utf8_percent_encode(desc, QUERY_ENCODE_SET);
@@ -111,16 +113,16 @@ pub fn create_issue(
     Ok(core.run(work)?)
 }
 
-pub fn get_user_id_by_name(name: &str) -> Result<UserId, Box<Error>> {
+fn get_user_id_by_name(name: &str) -> Result<UserId, Box<Error>> {
     let config = read_config()?;
     let gl = Gitlab::new(&config.gitlab_domain, &config.gitlab_token)?;
     let user: gitlab::User = gl.user_by_name(name)?;
     Ok(user.id)
 }
 
-pub fn list_issues(config: Config, project: &str, filter_state: &MyIssueState) -> Result<String, Box<Error>> {
+pub fn list_issues(config: Config, project: &Project, filter_state: &MyIssueState) -> Result<String, Box<Error>> {
     let gitlab_client = Gitlab::new(&config.gitlab_domain, &config.gitlab_token)?;
-    let project = gitlab_client.project_by_name(project)?;
+    let project = gitlab_client.project_by_name(project.name())?;
 
     gitlab_client
         .issues(project.id)
@@ -147,17 +149,17 @@ pub fn list_issues(config: Config, project: &str, filter_state: &MyIssueState) -
         .map_err(From::from)
 }
 
-pub fn get_issue_url(domain: &str, project: &str, number: &u64) -> String {
-    format!("https://{}/{}/issues/{}", domain, project, number)
+pub fn get_issue_url(domain: &str, project_name: &str, number: &u64) -> String {
+    format!("https://{}/{}/issues/{}", domain, project_name, number)
 }
 
-pub fn get_project_url(domain: &str, project: &str) -> String {
-    format!("https://{}/{}", domain, project)
+pub fn get_project_url(domain: &str, project: &Project) -> String {
+    format!("https://{}/{}", domain, project.name())
 }
 
-pub fn open_gitlab(domain: &str, p: &str, issue: Option<u64>) -> Result<(), Box<Error>> {
+pub fn open_gitlab(domain: &str, p: &Project, issue: Option<u64>) -> Result<(), Box<Error>> {
     if let Some(i) = issue {
-        open::that(get_issue_url(domain, p, &i))?;
+        open::that(get_issue_url(domain, &p.name(), &i))?;
     } else {
         open::that(get_project_url(domain, p))?;
     }

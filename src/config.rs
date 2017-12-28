@@ -15,6 +15,25 @@ pub struct Config {
     pub gitlab_token: String,
 }
 
+#[derive(Debug)]
+pub enum Place {
+    Github,
+    Gitlab(String)
+}
+
+#[derive(Debug)]
+pub struct Project {
+    pub place: Place,
+    pub owner: String,
+    pub repo: String
+}
+
+impl Project {
+    pub fn name(&self) -> String {
+        format!("{}/{}", self.owner, self.repo)
+    }
+}
+
 fn parse_origin(origin: &str) -> Result<(String,String,String), Box<Error>> {
         named!(
         raw_ssh,
@@ -138,14 +157,24 @@ mod parsing_tests {
     }
 }
 
-pub fn extract_project(config: &Config) -> Result<String, Box<Error>> {
+pub fn extract_project(config: &Config) -> Result<Project, Box<Error>> {
     let repo = git2::Repository::open(".")?;
     let remote = repo.find_remote("origin")?;
     let origin = remote.url().ok_or("origin is not valid UTF8")?;
-    let (domain, repo, owner) = parse_origin(&origin)?;
+    let (domain, owner, repo) = parse_origin(&origin)?;
 
     if domain == config.gitlab_domain {
-        Ok(format!("{}/{}", repo, owner))
+        Ok(Project {
+            place: Place::Gitlab(domain),
+            owner,
+            repo
+        })
+    } else if domain == "github.com" {
+        Ok(Project {
+            place: Place::Github,
+            owner,
+            repo
+        })
     } else {
         Err(format!(
            "Couldn't find credentials for {}, only {} is supported",

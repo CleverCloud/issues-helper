@@ -39,7 +39,7 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
             let config = read_config()?;
             let project = extract_project(&config)?;
             let res = create_issue(&config, &project, title, text, labels, assignee)?;
-            let url = get_issue_url(&config.gitlab_domain, &project, &res);
+            let url = get_issue_url(&config.gitlab_domain, &project.name(), &res);
             if open_browser {
                 open_gitlab(&config.gitlab_domain, &project, Some(res))?
             }
@@ -49,7 +49,7 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
             let config = read_config()?;
             let project = extract_project(&config)?;
             let _ = open_gitlab(&config.gitlab_domain, &project, None);
-            Ok(format!("Opening {}", &project))
+            Ok(format!("Opening {}", &project.name()))
         },
         &Cmd::ListIssues {
             ref filter_state,
