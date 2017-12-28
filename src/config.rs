@@ -15,12 +15,8 @@ pub struct Config {
     pub gitlab_token: String,
 }
 
-pub fn extract_project(config: &Config) -> Result<String, Box<Error>> {
-    let repo = git2::Repository::open(".")?;
-    let remote = repo.find_remote("origin")?;
-    let origin = remote.url().ok_or("origin is not valid UTF8")?;
-
-    named!(
+fn parse_origin(origin: &str) -> Result<(String,String,String), Box<Error>> {
+        named!(
         raw_ssh,
         do_parse!(
             tag!("git@") >>
@@ -32,7 +28,7 @@ pub fn extract_project(config: &Config) -> Result<String, Box<Error>> {
     named!(
         ssh_url,
         do_parse!(
-            tag!("git+ssh://") >>
+            tag!("git+ssh://git@") >>
             domain: take_while!(|c: u8| c as char != '/') >>
             tag!("/") >> (domain)
         )
@@ -48,16 +44,23 @@ pub fn extract_project(config: &Config) -> Result<String, Box<Error>> {
     );
 
     named!(
-        repo_name<String>,
+        owner<String>,
+        map_res!(
+            many_till!(call!(be_u8), tag!("/")),
+            |(bytes, _)| String::from_utf8(bytes)
+        )
+    );
+
+    named!(
+        repo<String>,
         map_res!(
             many_till!(call!(be_u8), alt_complete!(tag!(".git") | eof!())),
             |(bytes, _)| String::from_utf8(bytes)
         )
     );
 
-
     named!(
-        address<(String, String)>,
+        address<(String, String,String)>,
         do_parse!(
         domain: map_res!(
             alt_complete!(
@@ -67,24 +70,88 @@ pub fn extract_project(config: &Config) -> Result<String, Box<Error>> {
             ),
             |bytes| std::str::from_utf8(bytes).map(|s| s.to_owned())
         ) >>
-        project: repo_name >>
-        (domain, project)
+        owner: owner >>
+        repo: repo >>
+        (domain, owner, repo)
     )
     );
 
     match address(origin.as_bytes()) {
-        Done(_, (domain, project)) => {
-            if domain == config.gitlab_domain {
-                Ok(project)
-            } else {
-                Err(format!(
-                    "Couldn't find credentials for {}, only {} is supported",
-                    domain,
-                    config.gitlab_domain
-                ).into())
-            }
+        Done(_, (domain, owner, repo)) => {
+                Ok((domain, owner, repo))
         }
         e => Err(format!("Couldn't parse 'orgin' remote: {:?}", e).into()),
+    }
+}
+
+#[cfg(test)]
+mod parsing_tests {
+    use super::*;
+
+    #[test]
+    fn parsing_raw_ssh_with_ext() {
+        let raw_ssh_with_ext = "git@github.com:CleverCloud/issues-helper.git";
+        assert_eq!(
+            parse_origin(raw_ssh_with_ext).unwrap_or((String::new(), String::new(), String::new())),
+            ("github.com".into(), "CleverCloud".into(), "issues-helper".into())
+        );
+    }
+    #[test]
+    fn parsing_ssh_url_with_ext() {
+        let ssh_url_with_ext = "git+ssh://git@github.com/CleverCloud/issues-helper.git";
+        assert_eq!(
+            parse_origin(ssh_url_with_ext).unwrap_or((String::new(), String::new(), String::new())),
+            ("github.com".into(), "CleverCloud".into(), "issues-helper".into())
+        );
+    }
+    #[test]
+    fn parsing_https_url_with_ext() {
+        let https_url_with_ext = "https://github.com/CleverCloud/issues-helper.git";
+        assert_eq!(
+            parse_origin(https_url_with_ext).unwrap_or((String::new(), String::new(), String::new())),
+            ("github.com".into(), "CleverCloud".into(), "issues-helper".into())
+        );
+    }
+    #[test]
+    fn parsing_raw_ssh() {
+        let raw_ssh = "git@github.com:CleverCloud/issues-helper";
+        assert_eq!(
+            parse_origin(raw_ssh).unwrap_or((String::new(), String::new(), String::new())),
+            ("github.com".into(), "CleverCloud".into(), "issues-helper".into())
+        );
+    }
+    #[test]
+    fn parsing_ssh_url() {
+        let ssh_url = "git+ssh://git@github.com/CleverCloud/issues-helper";
+        assert_eq!(
+            parse_origin(ssh_url).unwrap_or((String::new(), String::new(), String::new())),
+            ("github.com".into(), "CleverCloud".into(), "issues-helper".into())
+        );
+    }
+    #[test]
+    fn parsing_https_url() {
+        let https_url = "https://github.com/CleverCloud/issues-helper";
+        assert_eq!(
+            parse_origin(https_url).unwrap_or((String::new(), String::new(), String::new())),
+            ("github.com".into(), "CleverCloud".into(), "issues-helper".into())
+        );
+    }
+}
+
+pub fn extract_project(config: &Config) -> Result<String, Box<Error>> {
+    let repo = git2::Repository::open(".")?;
+    let remote = repo.find_remote("origin")?;
+    let origin = remote.url().ok_or("origin is not valid UTF8")?;
+    let (domain, repo, owner) = parse_origin(&origin)?;
+
+    if domain == config.gitlab_domain {
+        Ok(format!("{}/{}", repo, owner))
+    } else {
+        Err(format!(
+           "Couldn't find credentials for {}, only {} is supported",
+           domain,
+           config.gitlab_domain
+        ).into())
     }
 }
 
