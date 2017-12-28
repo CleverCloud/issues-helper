@@ -120,7 +120,7 @@ fn get_user_id_by_name(name: &str) -> Result<UserId, Box<Error>> {
     Ok(user.id)
 }
 
-pub fn list_issues(config: Config, project: &Project, filter_state: &MyIssueState) -> Result<String, Box<Error>> {
+pub fn list_issues(config: Config, project: &Project, filter_state: &IssueFilter) -> Result<String, Box<Error>> {
     let gitlab_client = Gitlab::new(&config.gitlab_domain, &config.gitlab_token)?;
     let project = gitlab_client.project_by_name(project.name())?;
 
@@ -129,7 +129,10 @@ pub fn list_issues(config: Config, project: &Project, filter_state: &MyIssueStat
         .and_then(|issues| {
             issues
                 .into_iter()
-                .filter(|i| i.state == filter_state.0)
+                .filter(|i| { match filter_state {
+                    &IssueFilter::Open => (i.state == IssueState::Opened) || i.state == IssueState::Reopened,
+                    &IssueFilter::Closed => (i.state == IssueState::Closed),
+                }})
                 .for_each(|i| {
                     println!(
                         "#{} {} {} {} {}",

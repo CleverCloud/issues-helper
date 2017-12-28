@@ -23,7 +23,6 @@ mod config;
 mod gitlab_api;
 
 use config::*;
-use gitlab_api::*;
 use std::error::Error;
 use structopt::StructOpt;
 
@@ -38,17 +37,31 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
         } => {
             let config = read_config()?;
             let project = extract_project(&config)?;
-            let res = create_issue(&config, &project, title, text, labels, assignee)?;
-            let url = get_issue_url(&config.gitlab_domain, &project.name(), &res);
-            if open_browser {
-                open_gitlab(&config.gitlab_domain, &project, Some(res))?
+            match &project.place {
+                &Place::Gitlab(_) => {
+                    let res = gitlab_api::create_issue(&config, &project, title, text, labels, assignee)?;
+                    let url = gitlab_api::get_issue_url(&config.gitlab_domain, &project.name(), &res);
+                    if open_browser {
+                        gitlab_api::open_gitlab(&config.gitlab_domain, &project, Some(res))?
+                    }
+                    Ok(format!("Created issue #{} {}", res, url))
+                }
+                &Place::Github => {
+                    unimplemented!()
+                }
             }
-            Ok(format!("Created issue #{} {}", res, url))
         }
         &Cmd::Browse {} => {
             let config = read_config()?;
             let project = extract_project(&config)?;
-            let _ = open_gitlab(&config.gitlab_domain, &project, None);
+            match &project.place {
+                &Place::Gitlab(_) => {
+                    let _ = gitlab_api::open_gitlab(&config.gitlab_domain, &project, None);
+                }
+                &Place::Github => {
+                    unimplemented!()
+                }
+            }
             Ok(format!("Opening {}", &project.name()))
         },
         &Cmd::ListIssues {
@@ -56,7 +69,10 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
         } => {
             let config = read_config()?;
             let project = extract_project(&config)?;
-            list_issues(config, &project, filter_state)
+            match &project.place {
+                &Place::Gitlab(_) => gitlab_api::list_issues(config, &project, filter_state),
+                &Place::Github => unimplemented!()
+            }
         },
         &Cmd::Init {} => {
             init_config()?;
@@ -89,8 +105,8 @@ enum Cmd {
     ListIssues {
         #[structopt(name = "filter", short = "f", long = "filter",
                     default_value = "open",
-                    help = "Filter the issues by state. Possible values are: open, closed, reopened")]
-        filter_state: MyIssueState,
+                    help = "Filter the issues by state. Possible values are: open, closed")]
+        filter_state: IssueFilter,
     },
 }
 

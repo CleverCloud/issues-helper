@@ -8,6 +8,8 @@ use xdg::BaseDirectories;
 use git2;
 use std;
 use toml;
+use std::fmt;
+use std::str::FromStr;
 
 #[derive(Deserialize, Serialize)]
 pub struct Config {
@@ -32,6 +34,33 @@ pub struct Project {
 impl Project {
     pub fn name(&self) -> String {
         format!("{}/{}", self.owner, self.repo)
+    }
+}
+
+#[derive(Debug)]
+pub enum IssueFilter {
+    Open,
+    Closed,
+}
+
+impl FromStr for IssueFilter {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_ref() {
+            "open" => Ok(IssueFilter::Open),
+            "closed" => Ok(IssueFilter::Closed),
+            _ => Err(format!("Unknown state: {}", s)),
+        }
+    }
+}
+
+impl fmt::Display for IssueFilter {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &IssueFilter::Open => write!(f, "open"),
+            &IssueFilter::Closed => write!(f, "closed"),
+        }
     }
 }
 
