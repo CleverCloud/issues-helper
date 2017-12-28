@@ -13,6 +13,7 @@ use toml;
 pub struct Config {
     pub gitlab_domain: String,
     pub gitlab_token: String,
+    pub github_token: String,
 }
 
 #[derive(Debug)]
@@ -196,10 +197,15 @@ pub fn ask_config() -> Result<Config, Box<Error>> {
     println!("Thanks, now I need a personal access token to authenticate calls.");
     println!("You can generate one here: https://{}/profile/personal_access_tokens", &gitlab_domain);
     let gitlab_token = prompt_reply_stdout("Gitlab personal access token: ")?;
+    println!("Wonderful! Now I'll need a *github* personal access token.");
+    println!("You can generate one here: https://github.com/settings/tokens/new");
+    println!("You only need to check the `Repo` scope");
+    let github_token = prompt_reply_stdout("Github personal access token: ")?;
 
     Ok(Config {
         gitlab_domain: gitlab_domain.to_owned(),
         gitlab_token: gitlab_token.to_owned(),
+        github_token: github_token.to_owned(),
     })
 }
 
