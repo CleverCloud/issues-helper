@@ -4,7 +4,6 @@ use futures::{Future, Stream};
 use gitlab;
 use gitlab::*;
 use gitlab::Gitlab;
-use gitlab::types::*;
 use hyper::{Chunk, Client, Post, Request};
 use hyper_tls::HttpsConnector;
 use open;

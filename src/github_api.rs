@@ -1,13 +1,8 @@
 use config::*;
 use gh::client::{Executor, Github};
 use open;
-use serde_json;
-use serde_json::Value;
 use std::error::Error;
-use std::fmt;
-use std::io;
 use std::result::Result;
-use std::str::FromStr;
 
 #[derive(Debug, Serialize)]
 struct IssueData {
