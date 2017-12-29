@@ -1,8 +1,8 @@
 use config::*;
 use config::Project;
-use gitlab::*;
 use futures::{Future, Stream};
 use gitlab;
+use gitlab::*;
 use gitlab::Gitlab;
 use gitlab::types::*;
 use hyper::{Chunk, Client, Post, Request};
@@ -11,13 +11,12 @@ use open;
 use serde_json;
 use serde_json::Value;
 use std::error::Error;
-use std::io;
-use std::str::FromStr;
 use std::fmt;
+use std::io;
 use std::result::Result;
+use std::str::FromStr;
 use tokio_core::reactor::Core;
 use url::percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET, QUERY_ENCODE_SET};
-
 
 #[derive(Debug)]
 pub struct MyIssueState(IssueState);
@@ -84,19 +83,13 @@ pub fn create_issue(
 
     let url = format!(
         "https://{}/api/v4/projects/{}/issues?title={}&description={}{}{}",
-        &config.gitlab_domain,
-        encoded_project,
-        encoded_title,
-        encoded_desc,
-        &labels_param,
-        &assignee_param
+        &config.gitlab_domain, encoded_project, encoded_title, encoded_desc, &labels_param, &assignee_param
     );
     let mut core = Core::new()?;
     let connector = HttpsConnector::new(4, &core.handle())?;
     let client = Client::configure()
         .connector(connector)
         .build(&core.handle());
-
 
     let uri = url.parse()?;
     let mut request = Request::new(Post, uri);
@@ -130,10 +123,10 @@ pub fn list_issues(config: Config, project: &Project, filter_state: &IssueFilter
         .and_then(|issues| {
             issues
                 .into_iter()
-                .filter(|i| { match filter_state {
+                .filter(|i| match filter_state {
                     &IssueFilter::Open => (i.state == IssueState::Opened) || i.state == IssueState::Reopened,
                     &IssueFilter::Closed => (i.state == IssueState::Closed),
-                }})
+                })
                 .for_each(|i| {
                     println!(
                         "#{} {} {} {} {}",

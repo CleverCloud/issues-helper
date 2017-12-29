@@ -1,34 +1,34 @@
+use git2;
 use nom::IResult::Done;
 use nom::be_u8;
 use rprompt::prompt_reply_stdout;
+use std;
 use std::error::Error;
+use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
-use xdg::BaseDirectories;
-use git2;
-use std;
-use toml;
-use std::fmt;
 use std::str::FromStr;
+use toml;
+use xdg::BaseDirectories;
 
 #[derive(Deserialize, Serialize)]
 pub struct Config {
     pub gitlab_domain: String,
-    pub gitlab_token: String,
-    pub github_token: String,
+    pub gitlab_token:  String,
+    pub github_token:  String,
 }
 
 #[derive(Debug)]
 pub enum Place {
     Github,
-    Gitlab(String)
+    Gitlab(String),
 }
 
 #[derive(Debug)]
 pub struct Project {
     pub place: Place,
     pub owner: String,
-    pub repo: String
+    pub repo:  String,
 }
 
 impl Project {
@@ -37,7 +37,7 @@ impl Project {
     }
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum IssueFilter {
     Open,
     Closed,
@@ -64,40 +64,27 @@ impl fmt::Display for IssueFilter {
     }
 }
 
-fn parse_origin(origin: &str) -> Result<(String,String,String), Box<Error>> {
-        named!(
+fn parse_origin(origin: &str) -> Result<(String, String, String), Box<Error>> {
+    named!(
         raw_ssh,
-        do_parse!(
-            tag!("git@") >>
-            domain: take_while!(|c: u8| c as char != ':') >>
-            tag!(":") >> (domain)
-        )
+        do_parse!(tag!("git@") >> domain: take_while!(|c: u8| c as char != ':') >> tag!(":") >> (domain))
     );
 
     named!(
         ssh_url,
-        do_parse!(
-            tag!("git+ssh://git@") >>
-            domain: take_while!(|c: u8| c as char != '/') >>
-            tag!("/") >> (domain)
-        )
+        do_parse!(tag!("git+ssh://git@") >> domain: take_while!(|c: u8| c as char != '/') >> tag!("/") >> (domain))
     );
 
     named!(
         https_url,
-        do_parse!(
-            tag!("https://") >>
-            domain: take_while!(|c: u8| c as char != '/') >>
-            tag!("/") >> (domain)
-        )
+        do_parse!(tag!("https://") >> domain: take_while!(|c: u8| c as char != '/') >> tag!("/") >> (domain))
     );
 
     named!(
         owner<String>,
-        map_res!(
-            many_till!(call!(be_u8), tag!("/")),
-            |(bytes, _)| String::from_utf8(bytes)
-        )
+        map_res!(many_till!(call!(be_u8), tag!("/")), |(bytes, _)| {
+            String::from_utf8(bytes)
+        })
     );
 
     named!(
@@ -109,26 +96,16 @@ fn parse_origin(origin: &str) -> Result<(String,String,String), Box<Error>> {
     );
 
     named!(
-        address<(String, String,String)>,
+        address<(String, String, String)>,
         do_parse!(
-        domain: map_res!(
-            alt_complete!(
-                raw_ssh |
-                ssh_url |
-                https_url
-            ),
-            |bytes| std::str::from_utf8(bytes).map(|s| s.to_owned())
-        ) >>
-        owner: owner >>
-        repo: repo >>
-        (domain, owner, repo)
-    )
+            domain: map_res!(alt_complete!(raw_ssh | ssh_url | https_url), |bytes| {
+                std::str::from_utf8(bytes).map(|s| s.to_owned())
+            }) >> owner: owner >> repo: repo >> (domain, owner, repo)
+        )
     );
 
     match address(origin.as_bytes()) {
-        Done(_, (domain, owner, repo)) => {
-                Ok((domain, owner, repo))
-        }
+        Done(_, (domain, owner, repo)) => Ok((domain, owner, repo)),
         e => Err(format!("Couldn't parse 'orgin' remote: {:?}", e).into()),
     }
 }
@@ -142,7 +119,11 @@ mod parsing_tests {
         let raw_ssh_with_ext = "git@github.com:CleverCloud/issues-helper.git";
         assert_eq!(
             parse_origin(raw_ssh_with_ext).unwrap_or((String::new(), String::new(), String::new())),
-            ("github.com".into(), "CleverCloud".into(), "issues-helper".into())
+            (
+                "github.com".into(),
+                "CleverCloud".into(),
+                "issues-helper".into()
+            )
         );
     }
     #[test]
@@ -150,7 +131,11 @@ mod parsing_tests {
         let ssh_url_with_ext = "git+ssh://git@github.com/CleverCloud/issues-helper.git";
         assert_eq!(
             parse_origin(ssh_url_with_ext).unwrap_or((String::new(), String::new(), String::new())),
-            ("github.com".into(), "CleverCloud".into(), "issues-helper".into())
+            (
+                "github.com".into(),
+                "CleverCloud".into(),
+                "issues-helper".into()
+            )
         );
     }
     #[test]
@@ -158,7 +143,11 @@ mod parsing_tests {
         let https_url_with_ext = "https://github.com/CleverCloud/issues-helper.git";
         assert_eq!(
             parse_origin(https_url_with_ext).unwrap_or((String::new(), String::new(), String::new())),
-            ("github.com".into(), "CleverCloud".into(), "issues-helper".into())
+            (
+                "github.com".into(),
+                "CleverCloud".into(),
+                "issues-helper".into()
+            )
         );
     }
     #[test]
@@ -166,7 +155,11 @@ mod parsing_tests {
         let raw_ssh = "git@github.com:CleverCloud/issues-helper";
         assert_eq!(
             parse_origin(raw_ssh).unwrap_or((String::new(), String::new(), String::new())),
-            ("github.com".into(), "CleverCloud".into(), "issues-helper".into())
+            (
+                "github.com".into(),
+                "CleverCloud".into(),
+                "issues-helper".into()
+            )
         );
     }
     #[test]
@@ -174,7 +167,11 @@ mod parsing_tests {
         let ssh_url = "git+ssh://git@github.com/CleverCloud/issues-helper";
         assert_eq!(
             parse_origin(ssh_url).unwrap_or((String::new(), String::new(), String::new())),
-            ("github.com".into(), "CleverCloud".into(), "issues-helper".into())
+            (
+                "github.com".into(),
+                "CleverCloud".into(),
+                "issues-helper".into()
+            )
         );
     }
     #[test]
@@ -182,7 +179,11 @@ mod parsing_tests {
         let https_url = "https://github.com/CleverCloud/issues-helper";
         assert_eq!(
             parse_origin(https_url).unwrap_or((String::new(), String::new(), String::new())),
-            ("github.com".into(), "CleverCloud".into(), "issues-helper".into())
+            (
+                "github.com".into(),
+                "CleverCloud".into(),
+                "issues-helper".into()
+            )
         );
     }
 }
@@ -197,19 +198,18 @@ pub fn extract_project(config: &Config) -> Result<Project, Box<Error>> {
         Ok(Project {
             place: Place::Gitlab(domain),
             owner,
-            repo
+            repo,
         })
     } else if domain == "github.com" {
         Ok(Project {
             place: Place::Github,
             owner,
-            repo
+            repo,
         })
     } else {
         Err(format!(
-           "Couldn't find credentials for {}, only {} is supported",
-           domain,
-           config.gitlab_domain
+            "Couldn't find credentials for {}, only {} is supported",
+            domain, config.gitlab_domain
         ).into())
     }
 }
@@ -224,7 +224,10 @@ pub fn ask_config() -> Result<Config, Box<Error>> {
     println!("Hi! First I need to know the domain name of your gitlab instance (eg gitlab.example.org)");
     let gitlab_domain = prompt_reply_stdout("Gitlab domain name: ")?;
     println!("Thanks, now I need a personal access token to authenticate calls.");
-    println!("You can generate one here: https://{}/profile/personal_access_tokens", &gitlab_domain);
+    println!(
+        "You can generate one here: https://{}/profile/personal_access_tokens",
+        &gitlab_domain
+    );
     let gitlab_token = prompt_reply_stdout("Gitlab personal access token: ")?;
     println!("Wonderful! Now I'll need a *github* personal access token.");
     println!("You can generate one here: https://github.com/settings/tokens/new");
@@ -233,8 +236,8 @@ pub fn ask_config() -> Result<Config, Box<Error>> {
 
     Ok(Config {
         gitlab_domain: gitlab_domain.to_owned(),
-        gitlab_token: gitlab_token.to_owned(),
-        github_token: github_token.to_owned(),
+        gitlab_token:  gitlab_token.to_owned(),
+        github_token:  github_token.to_owned(),
     })
 }
 
@@ -250,8 +253,9 @@ pub fn save_config(config: &Config) -> Result<(), Box<Error>> {
 pub fn read_config() -> Result<Config, Box<Error>> {
     let path = BaseDirectories::new()?.place_config_file("issues-helper")?;
     let missing_config: Box<Error> = format!(
-r#"It looks like you've not configured me yet.
-Please run `gli init` so we can get going!"#).into();
+        r#"It looks like you've not configured me yet.
+Please run `gli init` so we can get going!"#
+    ).into();
     let mut f = File::open(path).map_err(|_| missing_config)?;
 
     let mut contents = String::new();

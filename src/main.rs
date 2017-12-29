@@ -1,7 +1,7 @@
 extern crate futures;
 extern crate git2;
-extern crate gitlab;
 extern crate github_rs as gh;
+extern crate gitlab;
 extern crate hyper;
 extern crate hyper_tls;
 extern crate itertools;
@@ -69,27 +69,27 @@ fn do_work(cmd: &Cmd) -> Result<String, Box<Error>> {
                 }
             }
             Ok(format!("Opening {}", &project.name()))
-        },
-        &Cmd::ListIssues {
-            ref filter_state,
-        } => {
+        }
+        &Cmd::ListIssues { ref filter_state } => {
             let config = read_config()?;
             let project = extract_project(&config)?;
             match &project.place {
                 &Place::Gitlab(_) => gitlab_api::list_issues(config, &project, filter_state),
-                &Place::Github => github_api::list_issues(config, &project, filter_state)
+                &Place::Github => github_api::list_issues(config, &project, filter_state),
             }
-        },
+        }
         &Cmd::Init {} => {
             init_config()?;
-            Ok(format!(r#"
+            Ok(format!(
+                r#"
 Wonderful! Config has been saved in `$XDG_CONFIG_HOME/issues-helper`.
 By default, `$XDG_CONFIG_HOME` is `~/.config`.
 You can now `cd` to a project directory and type:
 `gli o "My issue"` to easily open issues.
 It will pick up the project from the `origin` git remote.
 Try `gli o --help` to see options.
-Happy hacking :-)"#))
+Happy hacking :-)"#
+            ))
         }
     }
 }
@@ -109,8 +109,7 @@ enum Cmd {
     #[structopt(name = "init", about = "Generate configuration")] Init {},
     #[structopt(name = "l", about = "List all gitlab issues")]
     ListIssues {
-        #[structopt(name = "filter", short = "f", long = "filter",
-                    default_value = "open",
+        #[structopt(name = "filter", short = "f", long = "filter", default_value = "open",
                     help = "Filter the issues by state. Possible values are: open, closed")]
         filter_state: IssueFilter,
     },
